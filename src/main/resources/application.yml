@@ -1,0 +1,25 @@
+
+# See https://activemq.apache.org/discovery
+
+spring:
+  jpa:  
+    hibernate:  
+      ddl-auto: update  
+    database-platform: org.hibernate.dialect.PostgreSQLDialect 
+    
+  datasource:  
+    continue-on-error: true
+    username: cube  
+    password: KE00b3 
+    
+  cloud:
+    gcp:
+      sql:
+        database-name: analysis_engines
+        # TODO Change this on deplopyment
+        instance-connection-name: jax-cube-dev-nc-01:us-east1:cube-science-bus
+
+#   activemq:
+#      broker-url: tcp://localhost:61616
+#      user: admin
+#      password: tests
