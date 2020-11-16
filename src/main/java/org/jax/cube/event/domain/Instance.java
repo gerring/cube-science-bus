@@ -4,14 +4,12 @@ import java.net.URI;
 import java.sql.Date;
 import java.util.Objects;
 
-import javax.persistence.CascadeType;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
-import javax.persistence.OneToOne;
-import javax.persistence.Table;
+import javax.persistence.ManyToOne;
 
 /**
  * Each Engine type in the Engine table may have multiple active instances.
@@ -21,8 +19,11 @@ import javax.persistence.Table;
  *
  */
 @Entity
-@Table(name = "INSTANCE")
 public class Instance {
+
+	@Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
+	private Long id;
 
 	/**
 	 * URI to submit (publish) a bean of the same JSON object type as submitTemplate
@@ -42,14 +43,10 @@ public class Instance {
 	 * JSON object which contains file paths. (Preferred binary stream.)
 	 */
 	private URI results;
-
-	@Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-	private Long id;
 	
-	@OneToOne(cascade = CascadeType.ALL)
-    @JoinColumn(name = "engineId", referencedColumnName = "id")
-	private Engine engine;
+	@ManyToOne
+	@JoinColumn(name="configuration_id", nullable=false)
+	private Configuration configuration;
 	
 	/**
 	 * URI to check if this instance is still active.
@@ -89,7 +86,7 @@ public class Instance {
 	 */
 	public Instance(URI submit, URI response, 
 					URI results, Long id, 
-					Engine engine, 
+					Configuration configuration, 
 					URI active, 
 					Date started,
 					Date expiry) {
@@ -98,7 +95,7 @@ public class Instance {
 		this.response = response;
 		this.results = results;
 		this.id = id;
-		this.engine = engine;
+		this.configuration = configuration;
 		this.active = active;
 		this.started = started;
 		this.expiry = expiry;
@@ -118,20 +115,6 @@ public class Instance {
 	 */
 	public void setId(Long id) {
 		this.id = id;
-	}
-
-	/**
-	 * @return the engine
-	 */
-	public Engine getEngine() {
-		return engine;
-	}
-
-	/**
-	 * @param engine the engine to set
-	 */
-	public void setEngine(Engine engine) {
-		this.engine = engine;
 	}
 
 	/**
@@ -178,7 +161,7 @@ public class Instance {
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(active, engine, expiry, id, response, results, started, submit);
+		return Objects.hash(active, configuration, expiry, id, response, results, started, submit);
 	}
 
 	@Override
@@ -188,7 +171,7 @@ public class Instance {
 		if (!(obj instanceof Instance))
 			return false;
 		Instance other = (Instance) obj;
-		return Objects.equals(active, other.active) && Objects.equals(engine, other.engine)
+		return Objects.equals(active, other.active) && Objects.equals(configuration, other.configuration)
 				&& Objects.equals(expiry, other.expiry) && Objects.equals(id, other.id)
 				&& Objects.equals(response, other.response) && Objects.equals(results, other.results)
 				&& Objects.equals(started, other.started) && Objects.equals(submit, other.submit);
@@ -234,5 +217,19 @@ public class Instance {
 	 */
 	public void setResults(URI results) {
 		this.results = results;
+	}
+
+	/**
+	 * @return the configuration
+	 */
+	public Configuration getConfiguration() {
+		return configuration;
+	}
+
+	/**
+	 * @param configuration the configuration to set
+	 */
+	public void setConfiguration(Configuration configuration) {
+		this.configuration = configuration;
 	}
 }

@@ -30,14 +30,17 @@ public class DummyAnalysisTest {
 	@Test
 	public void dummyAnalysis() throws Exception {
 		
-		DummyAnalysis<TSubmitBean, TResponseBean> dummyAnalysis = new DummyAnalysis<>(new TSubmitBean(), new TResponseBean());
-		dummyAnalysis.setFakeRunner(s->fakeRun(s, dummyAnalysis.getResponder())); // Does the fake run.
+		DummyAnalysis<TSubmitBean, TResponseBean> dummyAnalysis = new DummyAnalysis<>(TSubmitBean.class, TResponseBean.class);
+		dummyAnalysis.init(s->fakeRun(s, dummyAnalysis.getResponder())); // Does the fake run.
 
 		// Our beans sent will go here.
 		List<TResponseBean> runReplies = new ArrayList<>();
 		
 		CountDownLatch latch = new CountDownLatch(101); // The fake run has 101 messages
-		Consumer<TResponseBean> subAction = b->{runReplies.add(b); latch.countDown();};
+		Consumer<TResponseBean> subAction = b->{
+			runReplies.add(b);
+			latch.countDown();
+		};
 
 		// So now when we send the submit message, we get the fake runner responding on the response port.
 		try (Subscriber<TResponseBean> 	sub = new Subscriber<>(subAction, TResponseBean.class, dummyAnalysis.getInstance().getResponse());
@@ -46,6 +49,7 @@ public class DummyAnalysisTest {
 			TSubmitBean submission = new TSubmitBean();
 			submission.setDataPath(Paths.get("/some/path/to/run/do/you/have/access?"));
 			submission.setJobName("Test that dummy analysis");
+			latch.await(500, TimeUnit.MILLISECONDS); // Not sure why need to sleep here.
 			pub.send(submission);
 			
 			// This will return once they are all there or timeout after 1000

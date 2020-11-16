@@ -4,9 +4,12 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.PrimitiveIterator.OfInt;
+import java.util.Random;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.IntStream;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -14,6 +17,7 @@ import org.zeromq.ZContext;
 import org.zeromq.ZMQ.Socket;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -33,15 +37,25 @@ public abstract class AbstractContextManager<T> implements AutoCloseable{
 	protected String topic;
 
 	private Class<T> clazz;
-
+	private TypeReference<T> typeRef;
 	
 	protected AbstractContextManager(Class<T> clazz, String topic) {
-		this.context = new ZContext();
+		this(clazz, null, topic);
+	}
+	
+	protected AbstractContextManager(TypeReference<T> typeRef, String topic) {
+		this(null, typeRef, topic);
+	}
+	
+	private AbstractContextManager(Class<T> clazz, TypeReference<T> typeRef, String topic) {
 		this.clazz = clazz;
+		this.typeRef = typeRef;
+		
+		this.context = new ZContext();
 		this.topic = topic==null ? "" : topic;
 		checkTopic(topic);
 	}
-	
+
 	private void checkTopic(String top) {
 		if (top.isEmpty()) return;
 		if (TOPIC.matcher(top).matches()) return;
@@ -67,7 +81,11 @@ public abstract class AbstractContextManager<T> implements AutoCloseable{
 
 	protected T deserialize(String text) throws JsonMappingException, JsonProcessingException {
 		if (mapper == null) mapper = new ObjectMapper();// We make it if not injected e.g. non-spring unit test.
-		return mapper.readValue(text, clazz);
+		if (clazz!=null) {
+			return mapper.readValue(text, clazz);
+		} else {
+			return mapper.readValue(text, typeRef);
+		}
 	}
 	
 	protected String serialize(T bean) throws JsonMappingException, JsonProcessingException {
@@ -112,9 +130,16 @@ public abstract class AbstractContextManager<T> implements AutoCloseable{
 	}
 	
 	public static int getFreePort() throws IOException {
-		try(ServerSocket s = new ServerSocket(0)) {
-			return s.getLocalPort();
+		IntStream s = new Random().ints(1000, 0, 65000);
+		for (OfInt it = s.iterator(); it.hasNext();) {
+			int port = it.nextInt();
+			try(ServerSocket sock = new ServerSocket(port)) {
+				return port;
+			} catch (Exception ne) {
+				continue;
+			}
 		}
+		return -1; // We did not find one
 	}
 	
 	protected static String createRandomTopic() {

@@ -2,13 +2,12 @@ package org.jax.cube.event.domain;
 
 import java.sql.Date;
 import java.util.Objects;
-import java.util.UUID;
 
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
-import javax.persistence.Table;
+
 
 
 /**
@@ -17,16 +16,48 @@ import javax.persistence.Table;
  * NOTE the @column annotation is not required in this class
  * as the columns match the field names but we have used it anyway.
  * 
+ * @see http://lorenzo-dee.blogspot.com/2016/07/reference-by-identity-in-jpa.html
+ * 
  * @author gerrim
  *
  */
 @Entity
-@Table(name = "ENGINE")
-public class Engine {
+public class Configuration {
+	
+	public enum ExecutionType {
+		/**
+		 * Submit to a queues. 0MQ supports queues through an intermediary.
+		 * Only engines already registered with the intermediary will be able to take.
+		 * items from the queue and do the run. The intermediary can be on the web server machine 
+		 * and might need to store its queue state to a table.
+		 * 
+		 * @see https://learning-0mq-with-pyzmq.readthedocs.io/en/latest/pyzmq/devices/queue.html
+		 */
+		QUEUE, 
+		
+		/**
+		 * A random engine is selected to run the analysis.
+		 * This engine must be started and waiting to receive the submission.
+		 */
+		RANDOM, 
+		
+		/**
+		 * The analysis represents an engine with only one entry point.
+		 * A topic may be used to determine which results come from which 
+		 * analysis run.
+		 */
+		ONE, 
+		
+		/**
+		 * Rather than a queue the lowest loaded analysis engine is found and
+		 * the job is executed on that.
+		 */
+		LOAD_BALANCED;
+	}
 
 	@Id
     @GeneratedValue(strategy = GenerationType.AUTO)
-	private UUID id;
+	private Long id;
 
 	private String description;
 	
@@ -43,11 +74,16 @@ public class Engine {
 	 * The registration of the 
 	 */
 	private Date registered;
-
+	
+	/**
+	 * How we run jobs with this engine.
+	 */
+	private ExecutionType executionType;
+	
 	/**
 	 * No args for reflection/bean
 	 */
-	public Engine() {
+	public Configuration() {
 		
 	}
 
@@ -58,9 +94,8 @@ public class Engine {
 	 * @param responseTemplate
 	 * @param registered
 	 */
-	public Engine(UUID id, String description, String submitTemplate, String responseTemplate, Date registered) {
+	public Configuration(String description, String submitTemplate, String responseTemplate, Date registered) {
 		super();
-		this.id = id;
 		this.description = description;
 		this.submitTemplate = submitTemplate;
 		this.responseTemplate = responseTemplate;
@@ -70,14 +105,14 @@ public class Engine {
 	/**
 	 * @return the id
 	 */
-	public UUID getId() {
+	public Long getId() {
 		return id;
 	}
 
 	/**
 	 * @param id the id to set
 	 */
-	public void setId(UUID id) {
+	public void setId(Long id) {
 		this.id = id;
 	}
 
@@ -139,22 +174,34 @@ public class Engine {
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(description, id, registered, responseTemplate, submitTemplate);
+		return Objects.hash(description, executionType, id, registered, responseTemplate, submitTemplate);
 	}
 
 	@Override
 	public boolean equals(Object obj) {
 		if (this == obj)
 			return true;
-		if (!(obj instanceof Engine))
+		if (!(obj instanceof Configuration))
 			return false;
-		Engine other = (Engine) obj;
-		return Objects.equals(description, other.description) && Objects.equals(id, other.id)
-				&& Objects.equals(registered, other.registered)
+		Configuration other = (Configuration) obj;
+		return Objects.equals(description, other.description) && executionType == other.executionType
+				&& Objects.equals(id, other.id) && Objects.equals(registered, other.registered)
 				&& Objects.equals(responseTemplate, other.responseTemplate)
 				&& Objects.equals(submitTemplate, other.submitTemplate);
 	}
 
+	/**
+	 * @return the executionType
+	 */
+	public ExecutionType getExecutionType() {
+		return executionType;
+	}
 
+	/**
+	 * @param executionType the executionType to set
+	 */
+	public void setExecutionType(ExecutionType executionType) {
+		this.executionType = executionType;
+	}
 	
 }

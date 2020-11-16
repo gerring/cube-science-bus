@@ -13,6 +13,7 @@ import org.zeromq.ZMQ.Socket;
 import org.zeromq.ZMQException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 
 /**
  * Very light class for subscribing to string messages which are
@@ -29,25 +30,22 @@ public class Subscriber<T> extends AbstractContextManager<T> {
 	private Thread thread;
 	private Consumer<T> consumer;
 	
-	public Subscriber(Class<T> clazz) throws IOException, URISyntaxException {
-		this(null, clazz, ""); // Empty topic subscribes to everything
-	}
-
-	public Subscriber(Consumer<T> consumer, Class<T> clazz) throws IOException, URISyntaxException {
-		this(consumer, clazz, ""); // Empty topic subscribes to everything
-	}
-	
 	public Subscriber(Consumer<T> consumer, Class<T> clazz, URI uri) throws IOException, URISyntaxException {
-		this(consumer, clazz, uri, ""); // Empty topic subscribes to everything
+		super(clazz, ""); // Empty topic subscribes to everything
+		init(consumer, uri);
 	}
 
-	public Subscriber(Consumer<T> consumer, Class<T> clazz, String topic) throws IOException, URISyntaxException {
-		this(consumer, clazz, createRandomFreeUri(), topic);
+	public Subscriber(Consumer<T> consumer, TypeReference<T> typeRef, URI uri) throws IOException, URISyntaxException {
+		super(typeRef, "");
+		init(consumer, uri);
 	}
 	
 	public Subscriber(Consumer<T> consumer, Class<T> clazz, URI uri,  String topic) throws IOException, URISyntaxException {
-
 		super(clazz, topic);
+		init(consumer, uri);
+	}
+
+	private void init(Consumer<T> consumer, URI uri) {
 		this.uri = uri;
 		this.consumer = consumer;
 		this.socket = context.createSocket(SocketType.SUB);
@@ -76,6 +74,9 @@ public class Subscriber<T> extends AbstractContextManager<T> {
 				return;
 			}
 			try {
+				// TODO We probably just want this to
+				// be "JsonNode" type. We might not have the
+				// type from every analysis on the class path.
 				T bean = deserialize(text);
 				consumer.accept(bean);
 			} catch (JsonProcessingException e) {

@@ -1,19 +1,13 @@
 package org.jax.cube.event.controller;
 
-import java.io.IOException;
-import java.net.URISyntaxException;
 import java.sql.Date;
-import java.util.UUID;
 import java.util.function.Consumer;
 
-import org.jax.cube.event.domain.Engine;
+import org.jax.cube.event.analysis.AbstractAnalysisEngine;
+import org.jax.cube.event.domain.Configuration;
+import org.jax.cube.event.domain.Configuration.ExecutionType;
 import org.jax.cube.event.domain.Instance;
-import org.jax.cube.event.mq.Publisher;
-import org.jax.cube.event.mq.Subscriber;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.jax.cube.event.mq.AbstractContextManager;
 
 /**
  * This is both a type of engine, returned by getConfig() 
@@ -22,86 +16,53 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * @author gerrim
  *
  */
-public class DummyAnalysis<S,R> {
+public class DummyAnalysis<S,R> extends AbstractAnalysisEngine<S,R>{
 	
-	private ObjectMapper mapper = new ObjectMapper();
+	
+	private Consumer<S> testRunner;
 
-	private Engine config;
-	private Instance instance;
-	private Subscriber<S> submitter;
-	private Publisher<R> responder;
-	
 	public DummyAnalysis(Class<S> sClass, Class<R> rClass) throws Exception {
-		this(sClass.getConstructor().newInstance(), rClass.getConstructor().newInstance());
+		super(sClass, rClass);
 	}
 
-	public DummyAnalysis(S testSubmitBean, R testResponseBean) throws IOException, URISyntaxException {
+	/**
+	 * Creates a dummy config and then calls init(...) in the super class.
+	 * @param testRunner
+	 * @throws Exception
+	 */
+	public void init(Consumer<S> testRunner) throws Exception {
 		
-		config = new Engine();
-		config.setId(UUID.randomUUID());
+		this.testRunner = testRunner;
+		
+		S testSubmitBean = submitClass.getConstructor().newInstance();
+		R testResponseBean = responseClass.getConstructor().newInstance();
+		config = new Configuration();
 		config.setDescription("Test dummy compute engine");
 		config.setRegistered(new Date(System.currentTimeMillis()));
 		config.setResponseTemplate(mapper.writeValueAsString(testResponseBean));
 		config.setSubmitTemplate(mapper.writeValueAsString(testSubmitBean));
+		config.setExecutionType(ExecutionType.RANDOM);
 		
 		instance = new Instance();
-		instance.setEngine(config);
 		instance.setStarted(new Date(System.currentTimeMillis()));
 		instance.setExpiry(new Date(System.currentTimeMillis()+120000));
 		
-		this.submitter = new Subscriber<>((Class<S>)testSubmitBean.getClass());
-		instance.setSubmit(submitter.getUri());
+		instance.setSubmit(AbstractContextManager.createRandomFreeUri());
+		instance.setResponse(AbstractContextManager.createRandomFreeUri());
+		instance.setActive(AbstractContextManager.createRandomFreeUri());
 		
-		this.responder = new Publisher<>((Class<R>)testResponseBean.getClass());
-		instance.setResponse(responder.getUri());
+		// Wire them
+		instance.setConfiguration(config);
+		
+		super.init(config, instance);
 	}
 
-	/**
-	 * @return the config
-	 */
-	public Engine getEngine() {
-		return config;
+	@Override
+	protected Consumer<S> createSubmitter() {
+		return testRunner;
 	}
 
-	/**
-	 * @param config the config to set
-	 */
-	public void setConfig(Engine config) {
-		this.config = config;
-	}
-
-	
-	public void close() {
-		submitter.close();
-		responder.close();
-	}
-
-	public void send(R r) throws JsonMappingException, JsonProcessingException {
-		responder.send(r);
-	}
-	
-	public void setFakeRunner(Consumer<S> consumer) {
-		submitter.setConsumer(consumer);
-	}
-
-	/**
-	 * @return the submitter
-	 */
-	public Subscriber<S> getSubmitter() {
-		return submitter;
-	}
-
-	/**
-	 * @return the responder
-	 */
-	public Publisher<R> getResponder() {
-		return responder;
-	}
-
-	/**
-	 * @return the instance
-	 */
-	public Instance getInstance() {
-		return instance;
+	public void trigger() throws Exception {
+		testRunner.accept(submitClass.getConstructor().newInstance());
 	}
 }

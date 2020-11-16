@@ -1,22 +1,21 @@
 package org.jax.cube.event.controller;
 
-import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 
-import org.jax.cube.event.db.EngineRepository;
+import org.jax.cube.event.db.ConfigurationRepository;
 import org.jax.cube.event.db.InstanceRepository;
 import org.jax.cube.event.domain.AnalysisEngineException;
-import org.jax.cube.event.domain.Engine;
+import org.jax.cube.event.domain.Configuration;
 import org.jax.cube.event.domain.Instance;
+import org.jax.cube.event.service.ExecutionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
-import reactor.core.publisher.Mono;
 
 /**
  * 
@@ -33,13 +32,13 @@ import reactor.core.publisher.Mono;
 public class CubeEventController {
 	
 	@Autowired
-	private EngineRepository engines;
+	private ConfigurationRepository confs;
 	
 	@Autowired
 	private InstanceRepository instances;
-
+	
 	@Autowired
-	private ObjectMapper mapper;
+	private ExecutionService service;
 
 	/**
 	 * Get all engines registered
@@ -47,8 +46,8 @@ public class CubeEventController {
 	 * @throws Exception
 	 */
 	@GetMapping(path="/engines")
-	public Flux<Engine> getEngines() throws Exception {
-		return Flux.fromStream(engines.findAll().stream());
+	public Flux<Configuration> getConfs() throws Exception {
+		return Flux.fromStream(confs.findAll().stream());
 	}
 	
 	@GetMapping(path="/instances")
@@ -56,9 +55,9 @@ public class CubeEventController {
 		return Flux.fromStream(instances.findAll().stream());
 	}
 
-	@GetMapping(path="/instancesOfEngine")
-	public Flux<Instance>  getInstances(UUID engineId) throws Exception {
-		return Flux.fromStream(instances.findByEngineId(engineId).stream());
+	@GetMapping(path="/instancesOfEngine/{configId}")
+	public Flux<Instance>  getInstances(@PathVariable Long configId) throws Exception {
+		return Flux.fromStream(instances.findByConfigurationId(configId).stream());
 	}
 
 	/**
@@ -72,20 +71,20 @@ public class CubeEventController {
 	 * @param topic
 	 * @return
 	 */
-	@GetMapping(path="/subscribe")
-	public <T> Flux<T> subscribe(UUID engineId) {
+	@GetMapping(path="/subscribe/{configId}")
+	public <T> Flux<T> subscribe(@PathVariable Long engineId) {
 		return Flux.create(emitter->subscription(engineId, emitter));
 	}
 
-	private <T> void subscription(UUID engineId, FluxSink<T> emitter) {
-//		UUID uuid = UUID.randomUUID();
-//		Consumer<T> event = message->emitter.next(message);
-//		try {
-//			mservice.subscribe(engineId, uuid, event);
-//		} catch (AnalysisEngineException e) {
-//			emitter.error(e);
-//		}
-//		emitter.onDispose(()->mservice.unsubscribe(engineId, uuid));
+	private <T> void subscription(Long engineId, FluxSink<T> emitter) {
+		UUID uuid = UUID.randomUUID(); // Just a unique Id for this subscription
+		Consumer<T> event = message->emitter.next(message);
+		try {
+			service.subscribe(engineId, uuid, event);
+		} catch (AnalysisEngineException e) {
+			emitter.error(e);
+		}
+		emitter.onDispose(()->service.unsubscribe(engineId, uuid));
 	}
 
 	/**
@@ -101,7 +100,7 @@ public class CubeEventController {
 	 * @throws AnalysisEngineException 
 	 */
 	@GetMapping(path="/execute")
-	public <T> boolean execute(UUID engineId, T info) throws AnalysisEngineException {
+	public <T> boolean execute(Long engineId, T info) throws AnalysisEngineException {
 		return false;
 //		return mservice.run(engineId, info);
 	}
